@@ -844,6 +844,29 @@ func GeneratePermutations(domain string, passiveHosts, intelTokens, baseTokens [
 	}
 
 	allTokens := util.UniqueSortedLower(append(append(intelTokens, baseTokens...), sortedKeys(stemSet)...))
+
+	// Always keep base tokens, but filter out noisy intel/stem tokens that look
+	// like hashes, long IDs, or are digit-heavy. This reduces permutation noise.
+	baseMap := make(map[string]struct{}, len(baseTokens))
+	for _, b := range baseTokens {
+		b = strings.ToLower(strings.TrimSpace(b))
+		if b != "" {
+			baseMap[b] = struct{}{}
+		}
+	}
+
+	filtered := make([]string, 0, len(allTokens))
+	for _, t := range allTokens {
+		if _, ok := baseMap[t]; ok {
+			filtered = append(filtered, t)
+			continue
+		}
+		if isMeaningfulToken(t) {
+			filtered = append(filtered, t)
+		}
+	}
+	allTokens = filtered
+
 	if len(allTokens) > tokenLimit {
 		allTokens = allTokens[:tokenLimit]
 	}
@@ -963,6 +986,69 @@ func normalizeToken(value string) string {
 		}
 	}
 	return value
+}
+
+// isHex reports whether s is a lowercase hexadecimal string (0-9a-f).
+func isHex(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !(r >= '0' && r <= '9') && !(r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// digitRatio returns the ratio of digit characters in s.
+func digitRatio(s string) float64 {
+	if s == "" {
+		return 0.0
+	}
+	digits := 0
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			digits++
+		}
+	}
+	return float64(digits) / float64(len(s))
+}
+
+// isMeaningfulToken filters out tokens that are unlikely to be useful for
+// permutations: extremely long tokens, hex-like hashes, or digit-heavy strings.
+func isMeaningfulToken(s string) bool {
+	if s == "" {
+		return false
+	}
+	// reasonable minimum length
+	if len(s) < 3 {
+		return false
+	}
+	// too long to be a label
+	if len(s) > 20 {
+		return false
+	}
+	// long hex-like tokens are likely hashes/ids
+	if len(s) >= 8 && isHex(s) {
+		return false
+	}
+	// mostly digits (e.g., timestamps/ids) are noisy
+	if digitRatio(s) > 0.6 {
+		return false
+	}
+	// must contain at least one letter
+	hasLetter := false
+	for _, r := range s {
+		if r >= 'a' && r <= 'z' {
+			hasLetter = true
+			break
+		}
+	}
+	if !hasLetter {
+		return false
+	}
+	return true
 }
 
 func inScope(host, domain string) bool {
