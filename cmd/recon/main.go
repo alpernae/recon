@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"recon-framework/internal/app"
+	"github.com/alpernae/recon/internal/app"
 )
 
 func main() {

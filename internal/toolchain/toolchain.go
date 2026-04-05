@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"recon-framework/internal/config"
+	"github.com/alpernae/recon/internal/config"
 )
 
 type ToolSpec struct {

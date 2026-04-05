@@ -16,7 +16,7 @@ The orchestration is now a single Go binary instead of Bash, so it works nativel
 ## Project Layout
 
 ```text
-recon-framework/
+recon/
 ├── cmd/
 │   └── recon/
 │       └── main.go
@@ -42,6 +42,15 @@ recon-framework/
 ```bash
 go build -o recon ./cmd/recon
 ```
+
+### Install with `go install`
+
+If you publish this repository at `github.com/alpernae/recon`, users can install the CLI with:
+
+```bash
+go install github.com/alpernae/recon/cmd/recon@latest
+```
+The installed binary will be placed in `$GOBIN` or `$GOPATH/bin`.
 
 ### Windows PowerShell
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"recon-framework/internal/install"
-	"recon-framework/internal/util"
+	"github.com/alpernae/recon/internal/install"
+	"github.com/alpernae/recon/internal/util"
 
 	"github.com/chromedp/chromedp"
 )

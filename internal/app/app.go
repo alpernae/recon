@@ -12,11 +12,11 @@ import (
 	"runtime"
 	"strings"
 
-	"recon-framework/internal/config"
-	"recon-framework/internal/install"
-	"recon-framework/internal/pipeline"
-	"recon-framework/internal/toolchain"
-	"recon-framework/internal/util"
+	"github.com/alpernae/recon/internal/config"
+	"github.com/alpernae/recon/internal/install"
+	"github.com/alpernae/recon/internal/pipeline"
+	"github.com/alpernae/recon/internal/toolchain"
+	"github.com/alpernae/recon/internal/util"
 )
 
 type CLI struct {

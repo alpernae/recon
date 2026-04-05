@@ -17,9 +17,9 @@ import (
 	"strings"
 	"unicode"
 
-	"recon-framework/internal/config"
-	"recon-framework/internal/toolchain"
-	"recon-framework/internal/util"
+	"github.com/alpernae/recon/internal/config"
+	"github.com/alpernae/recon/internal/toolchain"
+	"github.com/alpernae/recon/internal/util"
 )
 
 type Installer struct {
@@ -152,7 +152,7 @@ func (i *Installer) installFromGitHubRelease(ctx context.Context, spec toolchain
 		return err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "recon-framework")
+	request.Header.Set("User-Agent", "github.com/alpernae/recon")
 
 	response, err := i.HTTPClient.Do(request)
 	if err != nil {
@@ -194,7 +194,7 @@ func (i *Installer) download(ctx context.Context, assetURL, dst string) error {
 	if err != nil {
 		return err
 	}
-	request.Header.Set("User-Agent", "recon-framework")
+	request.Header.Set("User-Agent", "github.com/alpernae/recon")
 
 	response, err := i.HTTPClient.Do(request)
 	if err != nil {

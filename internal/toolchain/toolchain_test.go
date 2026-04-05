@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"recon-framework/internal/config"
+	"github.com/alpernae/recon/internal/config"
 )
 
 func TestFindPrefersLocalToolsOverPATH(t *testing.T) {

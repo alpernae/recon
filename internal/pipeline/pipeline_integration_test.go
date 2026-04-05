@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"recon-framework/internal/config"
-	"recon-framework/internal/toolchain"
-	"recon-framework/internal/util"
+	"github.com/alpernae/recon/internal/config"
+	"github.com/alpernae/recon/internal/toolchain"
+	"github.com/alpernae/recon/internal/util"
 )
 
 func TestPipelineRunWithMockedExecutables(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"recon-framework/internal/toolchain"
+	"github.com/alpernae/recon/internal/toolchain"
 )
 
 func TestSelectAssetPrefersTargetPlatform(t *testing.T) {

@@ -1,4 +1,4 @@
-module recon-framework
+module github.com/alpernae/recon
 
 go 1.26.0
 

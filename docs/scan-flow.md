@@ -1,4 +1,4 @@
-# Scan Flow — recon-framework
+# Scan Flow — recon
 
 This document explains end-to-end how a `recon` run works and exactly how `gau` output is consumed by the pipeline. It contains a detailed mermaid flow diagram and notes tying each step to the implementation.
 
