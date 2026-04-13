@@ -27,3 +27,21 @@ func TestToContainerPathRejectsExternalPath(t *testing.T) {
 		t.Fatal("expected external path to be rejected")
 	}
 }
+
+func TestChaosAPIKeyFromEnvUsesPDCPAlias(t *testing.T) {
+	t.Setenv("CHAOS_API_KEY", "")
+	t.Setenv("PDCP_API_KEY", "pdcp-key")
+
+	if got := chaosAPIKeyFromEnv(); got != "pdcp-key" {
+		t.Fatalf("expected pdcp-key, got %q", got)
+	}
+}
+
+func TestChaosAPIKeyFromEnvPrefersChaosAPIKey(t *testing.T) {
+	t.Setenv("CHAOS_API_KEY", "chaos-key")
+	t.Setenv("PDCP_API_KEY", "pdcp-key")
+
+	if got := chaosAPIKeyFromEnv(); got != "chaos-key" {
+		t.Fatalf("expected chaos-key, got %q", got)
+	}
+}

@@ -22,7 +22,7 @@ func TestPipelineRunWithMockedExecutables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tool := range []string{"amass", "subfinder", "chaos", "gau", "dnsx", "httpx", "nuclei"} {
+	for _, tool := range []string{"amass", "subfinder", "chaos", "gau", "urlfinder", "dnsx", "httpx", "nuclei"} {
 		installMockTool(t, binDir, tool)
 	}
 
@@ -57,7 +57,7 @@ func TestPipelineRunWithMockedExecutables(t *testing.T) {
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
 	run := func() {
-		if err := pipe.Run(context.Background(), opts, config.RuntimeDecision{
+		if err := pipe.RunAsync(context.Background(), opts, config.RuntimeDecision{
 			Selected:   config.RuntimeNative,
 			HighParity: false,
 		}); err != nil {
@@ -123,6 +123,8 @@ func TestMain(m *testing.M) {
 		mustWriteFlagFile("-o", "edge.example.com\n")
 	case "gau":
 		_, _ = os.Stdout.WriteString("https://portal.example.com/auth/login\nhttps://api.example.com/v1/users\nhttps://archive.example.com/reports/2024\n")
+	case "urlfinder":
+		_, _ = os.Stdout.WriteString("https://api.example.com/v2/dashboard\nhttps://newsite.example.com/\n")
 	case "dnsx", "shuffledns":
 		listFlag := "-l"
 		if toolName == "shuffledns" {
@@ -136,14 +138,12 @@ func TestMain(m *testing.M) {
 		}
 	case "httpx":
 		input := flagValue("-l")
-		output := flagValue("-o")
 		lines, err := util.ReadLines(input)
 		must(err)
-		live := make([]string, 0, len(lines))
 		for _, line := range lines {
-			live = append(live, "https://"+line)
+			// Mock httpx JSON output
+			_, _ = os.Stdout.WriteString(`{"host":"` + line + `","url":"https://` + line + `","status_code":200,"title":"Mock","tech":["React"]}` + "\n")
 		}
-		must(util.WriteTextLinesAtomic(output, live))
 	case "nuclei":
 		input := flagValue("-l")
 		output := flagValue("-o")

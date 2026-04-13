@@ -124,6 +124,14 @@ func KnownTools() []ToolSpec {
 			Description: "template-based scanning",
 		},
 		{
+			Name:        "urlfinder",
+			Binary:      "urlfinder",
+			GoModule:    "github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest",
+			GitHubRepo:  "projectdiscovery/urlfinder",
+			Required:    true,
+			Description: "passive crawling for URLs",
+		},
+		{
 			Name:        "gotator",
 			Binary:      "gotator",
 			GoModule:    "github.com/Josue87/gotator@latest",
@@ -328,7 +336,7 @@ func (t *Toolchain) BuildDoctorReport(ctx context.Context, opts config.CommonOpt
 	}
 
 	if strings.TrimSpace(opts.ChaosAPIKey) == "" {
-		report.Warnings = append(report.Warnings, "CHAOS_API_KEY is not set; the Chaos stage will be skipped")
+		report.Warnings = append(report.Warnings, "CHAOS_API_KEY (or PDCP_API_KEY) is not set; the Chaos stage will be skipped")
 	}
 	if strings.TrimSpace(opts.ResolversPath) == "" {
 		report.Errors = append(report.Errors, "resolver list path is empty")

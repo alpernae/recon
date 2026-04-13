@@ -74,7 +74,7 @@ func (c *CLI) runRecon(ctx context.Context, args []string) error {
 	runtimeFlag := fs.String("runtime", "auto", "runtime to use: auto, native, docker")
 	outDir := fs.String("outdir", "", "output directory")
 	resolvers := fs.String("resolvers", envOrDefault("RECON_RESOLVERS", config.DefaultResolversPath(cwd)), "resolver list path")
-	chaosAPIKey := fs.String("chaos-api-key", os.Getenv("CHAOS_API_KEY"), "Chaos API key")
+	chaosAPIKey := fs.String("chaos-api-key", chaosAPIKeyFromEnv(), "Chaos API key")
 	subfinderConfig := fs.String("subfinder-provider-config", os.Getenv("SUBFINDER_PROVIDER_CONFIG"), "subfinder provider config path")
 	amassConfig := fs.String("amass-config", os.Getenv("AMASS_CONFIG"), "amass config path")
 	dockerImage := fs.String("docker-image", envOrDefault("RECON_DOCKER_IMAGE", config.DefaultDockerImage), "docker image for docker runtime")
@@ -149,7 +149,7 @@ func (c *CLI) runRecon(ctx context.Context, args []string) error {
 	}
 
 	pipe := pipeline.New(tc, c.stdout, c.stderr)
-	return pipe.Run(ctx, opts, decision)
+	return pipe.RunAsync(ctx, opts, decision)
 }
 
 func (c *CLI) runDoctor(ctx context.Context, args []string) error {
@@ -162,7 +162,7 @@ func (c *CLI) runDoctor(ctx context.Context, args []string) error {
 	runtimeFlag := fs.String("runtime", "auto", "runtime to validate: auto, native, docker")
 	outDir := fs.String("outdir", "", "directory to test for writes")
 	resolvers := fs.String("resolvers", envOrDefault("RECON_RESOLVERS", config.DefaultResolversPath(cwd)), "resolver list path")
-	chaosAPIKey := fs.String("chaos-api-key", os.Getenv("CHAOS_API_KEY"), "Chaos API key")
+	chaosAPIKey := fs.String("chaos-api-key", chaosAPIKeyFromEnv(), "Chaos API key")
 	subfinderConfig := fs.String("subfinder-provider-config", os.Getenv("SUBFINDER_PROVIDER_CONFIG"), "subfinder provider config path")
 	amassConfig := fs.String("amass-config", os.Getenv("AMASS_CONFIG"), "amass config path")
 	dockerImage := fs.String("docker-image", envOrDefault("RECON_DOCKER_IMAGE", config.DefaultDockerImage), "docker image for docker runtime")
@@ -424,6 +424,13 @@ func envOrDefault(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func chaosAPIKeyFromEnv() string {
+	if value := strings.TrimSpace(os.Getenv("CHAOS_API_KEY")); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv("PDCP_API_KEY"))
 }
 
 func resolvePath(cwd, value string) string {

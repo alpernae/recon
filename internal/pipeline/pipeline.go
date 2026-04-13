@@ -47,7 +47,7 @@ func New(tools *toolchain.Toolchain, stdout, stderr io.Writer) *Pipeline {
 	}
 }
 
-func (p *Pipeline) Run(ctx context.Context, opts config.RunOptions, decision config.RuntimeDecision) error {
+func (p *Pipeline) prepareRun(ctx context.Context, opts config.RunOptions, decision config.RuntimeDecision) error {
 	if err := util.EnsureWritableDir(opts.OutDir); err != nil {
 		return fmt.Errorf("prepare output directory: %w", err)
 	}
@@ -132,6 +132,13 @@ func (p *Pipeline) Run(ctx context.Context, opts config.RunOptions, decision con
 			}
 		}
 	}
+	return nil
+}
+
+func (p *Pipeline) Run(ctx context.Context, opts config.RunOptions, decision config.RuntimeDecision) error {
+	if err := p.prepareRun(ctx, opts, decision); err != nil {
+		return err
+	}
 
 	p.logf("[+] Starting recon on %s (mode: %s, runtime: %s)\n", opts.Domain, opts.Mode, decision.Selected)
 
@@ -169,13 +176,20 @@ func (p *Pipeline) Run(ctx context.Context, opts config.RunOptions, decision con
 }
 
 func (p *Pipeline) runEnum(ctx context.Context, opts config.RunOptions) ([]string, error) {
+	allOutput := filepath.Join(opts.OutDir, "passive", "all.txt")
+	if util.FileExists(allOutput) {
+		p.logf("[+] Resuming from existing enum output: %s\n", allOutput)
+		if lines, err := util.ReadLines(allOutput); err == nil && len(lines) > 0 {
+			return lines, nil
+		}
+	}
+
 	p.logf("[+] Passive enum...\n")
 
 	passiveDir := filepath.Join(opts.OutDir, "passive")
 	amassOutput := filepath.Join(passiveDir, "amass.txt")
 	subfinderOutput := filepath.Join(passiveDir, "subfinder.txt")
 	chaosOutput := filepath.Join(passiveDir, "chaos.txt")
-	allOutput := filepath.Join(passiveDir, "all.txt")
 
 	var mu sync.Mutex
 	var warnings []string
@@ -278,20 +292,41 @@ func (p *Pipeline) shouldRunAmass(status toolchain.ToolStatus) bool {
 }
 
 func (p *Pipeline) runIntel(ctx context.Context, opts config.RunOptions, passiveAll []string) ([]string, []string, error) {
+	tokensPath := filepath.Join(opts.OutDir, "intel", "tokens.txt")
+	finalPassivePath := filepath.Join(opts.OutDir, "passive", "final.txt")
+	if util.FileExists(tokensPath) && util.FileExists(finalPassivePath) {
+		p.logf("[+] Resuming from existing intel/tokens.txt and passive/final.txt\n")
+		if tokens, err := util.ReadLines(tokensPath); err == nil {
+			if finalPassive, err := util.ReadLines(finalPassivePath); err == nil {
+				return finalPassive, tokens, nil
+			}
+		}
+	}
+
 	p.logf("[+] Collecting URLs and extracting intel...\n")
 
 	intelDir := filepath.Join(opts.OutDir, "intel")
 	passiveDir := filepath.Join(opts.OutDir, "passive")
 	urlsPath := filepath.Join(intelDir, "urls.txt")
-	tokensPath := filepath.Join(intelDir, "tokens.txt")
-	finalPassivePath := filepath.Join(passiveDir, "final.txt")
+	tokensPath = filepath.Join(intelDir, "tokens.txt")
+	finalPassivePath = filepath.Join(passiveDir, "final.txt")
 
 	stdout, err := p.runToolCapture(ctx, "gau", []string{opts.Domain}, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	urlLines := util.UniqueSorted(strings.Split(strings.TrimSpace(stdout), "\n"))
+	stdoutUrlfinder, err := p.runToolCapture(ctx, "urlfinder", []string{"-d", opts.Domain, "-silent"}, nil)
+	if err != nil {
+		p.logf("[!] urlfinder failed: %v\n", err)
+	}
+
+	allOutput := stdout
+	if stdoutUrlfinder != "" {
+		allOutput += "\n" + stdoutUrlfinder
+	}
+
+	urlLines := util.UniqueSorted(strings.Split(strings.TrimSpace(allOutput), "\n"))
 	if err := util.WriteTextLinesAtomic(urlsPath, urlLines); err != nil {
 		return nil, nil, err
 	}
@@ -310,6 +345,14 @@ func (p *Pipeline) runIntel(ctx context.Context, opts config.RunOptions, passive
 }
 
 func (p *Pipeline) runPermute(opts config.RunOptions, passiveFinal, intelTokens []string) ([]string, error) {
+	permsPath := filepath.Join(opts.OutDir, "perms", "all.txt")
+	if util.FileExists(permsPath) {
+		p.logf("[+] Resuming from existing permutations %s\n", permsPath)
+		if lines, err := util.ReadLines(permsPath); err == nil && len(lines) > 0 {
+			return lines, nil
+		}
+	}
+
 	p.logf("[+] Generating permutations...\n")
 
 	baseTokens, err := util.ReadLines(filepath.Join(opts.CWD, "wordlists", "base_tokens.txt"))
@@ -327,6 +370,14 @@ func (p *Pipeline) runPermute(opts config.RunOptions, passiveFinal, intelTokens 
 
 func (p *Pipeline) runResolve(ctx context.Context, opts config.RunOptions, decision config.RuntimeDecision, passiveFinal, permutations []string) ([]string, error) {
 	resolveDir := filepath.Join(opts.OutDir, "resolved")
+	cleanPath := filepath.Join(resolveDir, "clean.txt")
+	if util.FileExists(cleanPath) {
+		p.logf("[+] Resuming from existing resolution %s\n", cleanPath)
+		if lines, err := util.ReadLines(cleanPath); err == nil && len(lines) > 0 {
+			return lines, nil
+		}
+	}
+
 	p.logf("[+] Resolving subdomains...\n")
 
 	statusMap := make(map[string]toolchain.ToolStatus)
@@ -366,12 +417,20 @@ func (p *Pipeline) runResolve(ctx context.Context, opts config.RunOptions, decis
 }
 
 func (p *Pipeline) runProbe(ctx context.Context, opts config.RunOptions, resolved []string) ([]string, error) {
-	p.logf("[+] Probing live hosts...\n")
-
 	liveDir := filepath.Join(opts.OutDir, "live")
-	inputPath := filepath.Join(opts.OutDir, "resolved", "clean.txt")
 	outputPath := filepath.Join(liveDir, "live.txt")
 	jsonPath := filepath.Join(liveDir, "live.json")
+
+	if util.FileExists(outputPath) {
+		p.logf("[+] Resuming from existing live hosts %s\n", outputPath)
+		if lines, err := util.ReadLines(outputPath); err == nil && len(lines) > 0 {
+			return lines, nil
+		}
+	}
+
+	p.logf("[+] Probing live hosts...\n")
+
+	inputPath := filepath.Join(opts.OutDir, "resolved", "clean.txt")
 
 	if len(resolved) == 0 {
 		if err := util.WriteStringAtomic(outputPath, "", false); err != nil {

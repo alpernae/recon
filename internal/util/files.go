@@ -221,3 +221,4 @@ func FindWritableDirInPATH() (string, error) {
 	}
 	return "", fmt.Errorf("no writable directory found in PATH")
 }
+func FileExists(path string) bool { _, err := os.Stat(path); return err == nil }

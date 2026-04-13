@@ -63,10 +63,7 @@ func (i *Installer) Install(ctx context.Context, opts config.InstallOptions) err
 		if spec.Optional && !opts.IncludeOptional {
 			continue
 		}
-		if spec.Name == "massdns" {
-			i.logf("[-] Skipping %s: no built-in installer for this optional backend dependency\n", spec.Name)
-			continue
-		}
+		// massdns: attempt to build from source if requested (no release binaries)
 
 		localPath := filepath.Join(binDir, binaryName(spec.Binary, opts.TargetOS))
 		if !opts.Force {
@@ -79,6 +76,8 @@ func (i *Installer) Install(ctx context.Context, opts config.InstallOptions) err
 		i.logf("[+] Installing %s...\n", spec.Name)
 		var err error
 		switch {
+		case spec.Name == "massdns":
+			err = i.installMassDNS(ctx, binDir, opts.TargetOS, opts.TargetArch)
 		case goAvailable && spec.GoModule != "":
 			err = i.installWithGo(ctx, spec, binDir, opts.TargetOS, opts.TargetArch)
 		case spec.GitHubRepo != "":
@@ -108,10 +107,7 @@ func (i *Installer) Uninstall(ctx context.Context, opts config.InstallOptions) e
 		if spec.Optional && !opts.IncludeOptional {
 			continue
 		}
-		if spec.Name == "massdns" {
-			i.logf("[-] Skipping %s: no built-in installer for this optional backend dependency\n", spec.Name)
-			continue
-		}
+		// allow uninstall of massdns if present (it may have been built/installed by the installer)
 
 		localPath := filepath.Join(binDir, binaryName(spec.Binary, opts.TargetOS))
 		if err := os.Remove(localPath); err != nil {
@@ -422,6 +418,46 @@ func writeExtractedBinary(destination string, reader io.Reader) error {
 	if runtime.GOOS != "windows" {
 		return os.Chmod(destination, 0o755)
 	}
+	return nil
+}
+
+func (i *Installer) installMassDNS(ctx context.Context, binDir, targetOS, targetArch string) error {
+	if !i.commandExists("git") {
+		return fmt.Errorf("git not found: required to build massdns from source")
+	}
+	if !i.commandExists("make") {
+		return fmt.Errorf("make not found: required to build massdns from source")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "massdns-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "https://github.com/blechschmidt/massdns.git", tmpDir)
+	cmd.Env = os.Environ()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clone failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	cmd = exec.CommandContext(ctx, "make", "-C", tmpDir)
+	cmd.Env = os.Environ()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("make failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	src := filepath.Join(tmpDir, "bin", "massdns")
+	dst := filepath.Join(binDir, binaryName("massdns", targetOS))
+	if err := util.CopyFile(src, dst); err != nil {
+		return fmt.Errorf("copy massdns binary: %w", err)
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			return err
+		}
+	}
+	i.logf("[+] massdns built and installed to %s\n", dst)
 	return nil
 }
 
